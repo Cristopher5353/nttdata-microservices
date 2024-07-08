@@ -2,7 +2,9 @@ package com.productmicroservice.product_microservice.services.impl;
 
 import com.productmicroservice.product_microservice.dto.BankAccountDto;
 import com.productmicroservice.product_microservice.dto.BankAccountGetDto;
+import com.productmicroservice.product_microservice.dto.CustomerGetDto;
 import com.productmicroservice.product_microservice.error.BankAccountAlreadyExistsException;
+import com.productmicroservice.product_microservice.error.CustomerNotFoundException;
 import com.productmicroservice.product_microservice.error.InvalidBankAccountTypeException;
 import com.productmicroservice.product_microservice.error.InvalidCustomerTypeException;
 import com.productmicroservice.product_microservice.models.BankAccount;
@@ -13,6 +15,7 @@ import com.productmicroservice.product_microservice.util.EnumTypeBankAccount;
 import com.productmicroservice.product_microservice.util.EnumTypeCustomer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import java.util.Arrays;
 import java.util.Date;
@@ -22,32 +25,36 @@ public class ProductServiceImpl implements IProductService {
     @Autowired
     private BankAccountRepository bankAccountRepository;
 
+    @Autowired
+    private WebClient.Builder webClient;
+
     @Override
     public Mono<BankAccountGetDto> saveBankAccount(BankAccountDto bankAccountDto) {
-        //Add kafka message to customer microservice
-        //lanzar evento de registro y que el microservicio de cliente me devuelva al cliente
-        //si no esta que me retorne una excepción y si si esta que me retorne al cliente
-
-        Customer newCustomer = new Customer();
-        newCustomer.setName("Cristopher");
-        newCustomer.setLastName("Coronel");
-        newCustomer.setType(EnumTypeCustomer.PERSONAL);
-        newCustomer.setAge(20);
-
-        return processSaveBankAccount(bankAccountDto, newCustomer);
+        return webClient
+                .build()
+                .get()
+                .uri("http://localhost:8001/api/customers/{id}", bankAccountDto.getCustomer())
+                .retrieve()
+                .bodyToMono(CustomerGetDto.class)
+                .flatMap(customerGetDto -> {
+                    if(customerGetDto.getId() == null) {
+                        return Mono.error(new CustomerNotFoundException("Customer not found"));
+                    }
+                    return processSaveBankAccount(bankAccountDto, customerGetDto);
+                });
     }
 
-    private Mono<BankAccountGetDto> processSaveBankAccount(BankAccountDto bankAccountDto, Customer customer) {
-        if (customer.getType() == EnumTypeCustomer.PERSONAL) {
-            return processPersonalCustomer(bankAccountDto, customer);
-        } else if (customer.getType() == EnumTypeCustomer.BUSINESS) {
-            return processBusinessCustomer(bankAccountDto, customer);
+    private Mono<BankAccountGetDto> processSaveBankAccount(BankAccountDto bankAccountDto, CustomerGetDto customerGetDto) {
+        if (customerGetDto.getType() == EnumTypeCustomer.PERSONAL) {
+            return processPersonalCustomer(bankAccountDto, customerGetDto);
+        } else if (customerGetDto.getType() == EnumTypeCustomer.BUSINESS) {
+            return processBusinessCustomer(bankAccountDto, customerGetDto);
         } else {
             return Mono.error(new InvalidCustomerTypeException("Invalid customer type"));
         }
     }
 
-    private Mono<BankAccountGetDto> processPersonalCustomer(BankAccountDto bankAccountDto, Customer customer) {
+    private Mono<BankAccountGetDto> processPersonalCustomer(BankAccountDto bankAccountDto, CustomerGetDto customerGetDto) {
         if (bankAccountDto.getType() == EnumTypeBankAccount.SAVING || bankAccountDto.getType() == EnumTypeBankAccount.CURRENTACCOUNT) {
             return bankAccountRepository.findByCustomerAndTypeIn(bankAccountDto.getCustomer(), Arrays.asList(EnumTypeBankAccount.SAVING, EnumTypeBankAccount.CURRENTACCOUNT))
                     .collectList()
@@ -55,23 +62,23 @@ public class ProductServiceImpl implements IProductService {
                         if (!existingAccounts.isEmpty()) {
                             return Mono.error(new BankAccountAlreadyExistsException("Personal customer already has a saving or current account"));
                         } else {
-                            return createNewBankAccount(bankAccountDto, customer);
+                            return createNewBankAccount(bankAccountDto, customerGetDto);
                         }
                     });
         } else {
-            return createNewBankAccount(bankAccountDto, customer);
+            return createNewBankAccount(bankAccountDto, customerGetDto);
         }
     }
 
-    private Mono<BankAccountGetDto> processBusinessCustomer(BankAccountDto bankAccountDto, Customer customer) {
+    private Mono<BankAccountGetDto> processBusinessCustomer(BankAccountDto bankAccountDto, CustomerGetDto customerGetDto) {
         if (bankAccountDto.getType() == EnumTypeBankAccount.SAVING || bankAccountDto.getType() == EnumTypeBankAccount.FIXEDTERM) {
             return Mono.error(new InvalidBankAccountTypeException("Business customers cannot have savings or fixed term accounts"));
         } else {
-            return createNewBankAccount(bankAccountDto, customer);
+            return createNewBankAccount(bankAccountDto, customerGetDto);
         }
     }
 
-    private Mono<BankAccountGetDto> createNewBankAccount(BankAccountDto bankAccountDto, Customer customer) {
+    private Mono<BankAccountGetDto> createNewBankAccount(BankAccountDto bankAccountDto, CustomerGetDto customer) {
         BankAccount newBankAccount = new BankAccount();
         newBankAccount.setNumber(bankAccountDto.getNumber());
         newBankAccount.setDateCreated(new Date());
