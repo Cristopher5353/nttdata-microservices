@@ -1,5 +1,6 @@
 package com.productmicroservice.product_microservice.error;
 
+import com.productmicroservice.product_microservice.util.Customer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.ObjectError;
@@ -41,6 +42,16 @@ public class ResponseHandlerError {
 
     @ExceptionHandler(InvalidBankAccountTypeException.class)
     protected Mono<ResponseEntity<ErrorResponse>> handleBankAccountAlreadyExistsException(InvalidBankAccountTypeException ex) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+        errorResponse.setMessage(ex.getMessage());
+        errorResponse.setErrors(null);
+
+        return Mono.just(new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST));
+    }
+
+    @ExceptionHandler(CustomerNotFoundException.class)
+    protected Mono<ResponseEntity<ErrorResponse>> handleCustomerNotFoundException(InvalidBankAccountTypeException ex) {
         ErrorResponse errorResponse = new ErrorResponse();
         errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
         errorResponse.setMessage(ex.getMessage());
