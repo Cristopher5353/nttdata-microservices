@@ -9,16 +9,22 @@
         <outputRelativeToContentRoot value="true" />
         <module name="api-gateway" />
         <module name="customer-microservice" />
-        <module name="product-microservice" />
         <module name="eureka-server" />
+        <module name="bankaccount-microservice" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="movement-microservice" target="11" />
+      <module name="product-microservice" target="11" />
+    </bytecodeTargetLevel>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="api-gateway" options="-parameters" />
+      <module name="bankaccount-microservice" options="-parameters" />
       <module name="customer-microservice" options="-parameters" />
       <module name="eureka-server" options="-parameters" />
+      <module name="movement-microservice" options="-parameters" />
       <module name="product-microservice" options="-parameters" />
     </option>
   </component>
