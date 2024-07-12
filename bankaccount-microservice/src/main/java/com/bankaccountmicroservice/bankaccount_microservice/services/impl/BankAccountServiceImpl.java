@@ -12,6 +12,7 @@ import com.bankaccountmicroservice.bankaccount_microservice.util.EnumTypeCustome
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.Arrays;
 import java.util.Date;
@@ -31,7 +32,7 @@ public class BankAccountServiceImpl implements IBankAccountService {
         return webClient
                 .build()
                 .get()
-                .uri("http://localhost:8001/api/customers/{id}", bankAccountDto.getCustomer())
+                .uri("http://localhost:8090/api/customers/{id}", bankAccountDto.getCustomer())
                 .retrieve()
                 .bodyToMono(CustomerGetDto.class)
                 .flatMap(customerGetDto -> {
@@ -47,6 +48,13 @@ public class BankAccountServiceImpl implements IBankAccountService {
         return bankAccountRepository
                 .findById(id)
                 .switchIfEmpty(Mono.error(new BankAccountNotFoundException("Bank Account not found")))
+                .map(this::bankAccountToBankAccountGetDto);
+    }
+
+    @Override
+    public Flux<BankAccountGetDto> findByCustomer(String customer) {
+        return bankAccountRepository
+                .findByCustomer(customer)
                 .map(this::bankAccountToBankAccountGetDto);
     }
 

@@ -14,6 +14,7 @@ import com.bankaccountmicroservice.bankaccount_microservice.util.EnumTypeMovemen
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -33,7 +34,7 @@ public class MovementServiceImpl implements IMovementService {
     @Override
     public Mono<MovementGetDto> movement(MovementDto movementDto) {
         return getCustomerGetDto(movementDto.getCustomer())
-                .flatMap(customer -> bankAccountRepository.findById(movementDto.getProduct())
+                .flatMap(customer -> bankAccountRepository.findById(movementDto.getBankAccount())
                         .switchIfEmpty(Mono.error(new BankAccountNotFoundException("Bank account not found")))
                         .flatMap(bankAccount -> checkMovementLimits(movementDto, bankAccount)
                                 .flatMap(valid -> processMovement(movementDto, bankAccount))
@@ -42,10 +43,17 @@ public class MovementServiceImpl implements IMovementService {
                 );
     }
 
+    @Override
+    public Flux<MovementGetDto> findByBankAccountAndCustomer(String bankAccount, String customer) {
+        return movementRepository
+                .findByBankAccountAndCustomer(bankAccount, customer)
+                .map(this::movementToMovementGetDto);
+    }
+
     private Mono<Boolean> checkMovementLimits(MovementDto movementDto, BankAccount bankAccount) {
         if (bankAccount.getType() == EnumTypeBankAccount.SAVING) {
             return movementRepository
-                    .findByCustomerAndProductAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getProduct(), getStartOfMonth(), getEndOfMonth())
+                    .findByCustomerAndBankAccountAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getBankAccount(), getStartOfMonth(), getEndOfMonth())
                     .collectList()
                     .flatMap(movements -> {
                         if (movements.size() >= bankAccount.getLimit()) {
@@ -55,7 +63,7 @@ public class MovementServiceImpl implements IMovementService {
                     });
         } else if (bankAccount.getType() == EnumTypeBankAccount.FIXEDTERM) {
             return movementRepository
-                    .findByCustomerAndProductAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getProduct(), getStartOfMonth(), getEndOfMonth())
+                    .findByCustomerAndBankAccountAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getBankAccount(), getStartOfMonth(), getEndOfMonth())
                     .collectList()
                     .flatMap(movements -> {
                         if (!movements.isEmpty()) {
@@ -85,86 +93,6 @@ public class MovementServiceImpl implements IMovementService {
                 });
     }
 
-    /*@Override
-    public Mono<MovementGetDto> movement(MovementDto movementDto) {
-        return getCustomerGetDto(movementDto.getCustomer())
-                .flatMap(customer -> bankAccountRepository.findById(movementDto.getProduct())
-                        .switchIfEmpty(Mono.error(new BankAccountNotFoundException("Bank account not found")))
-                        .flatMap(bankAccount -> {
-                            if(bankAccount.getType() == EnumTypeBankAccount.SAVING) {
-                                return movementRepository
-                                        .findByCustomerAndProductAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getProduct(), getStartOfMonth(), getEndOfMonth())
-                                        .collectList()
-                                        .flatMap(movements -> {
-                                            if(movements.size() >= bankAccount.getLimit()) {
-                                                return Mono.error(new MovementLimitException("The client has reached the monthly transaction limit"));
-                                            }
-
-                                            return movementRepository
-                                                    .save(movementDtoToMovement(movementDto))
-                                                    .flatMap(movement -> {
-                                                        if(movement.getType() == EnumTypeMovement.DEPOSIT) {
-                                                            bankAccount.setBalance(bankAccount.getBalance() + movementDto.getAmount());
-                                                        } else if(movement.getType() == EnumTypeMovement.WITHDRAWAL) {
-                                                            if (bankAccount.getBalance() < movementDto.getAmount()) {
-                                                                return Mono.error(new InsufficientFundsException("Insufficient funds for withdrawal"));
-                                                            }
-                                                            bankAccount.setBalance(bankAccount.getBalance() - movementDto.getAmount());
-                                                        }
-
-                                                        return bankAccountRepository.save(bankAccount).thenReturn(movement);
-                                                    })
-                                                    .map(this::movementToMovementGetDto);
-                                        });
-                            }
-
-                            if(bankAccount.getType() == EnumTypeBankAccount.FIXEDTERM) {
-                                return movementRepository
-                                        .findByCustomerAndProductAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getProduct(), getStartOfMonth(), getEndOfMonth())
-                                        .collectList()
-                                        .flatMap(movements -> {
-                                            if(!movements.isEmpty()) {
-                                                return Mono.error(new MovementLimitOneMonthException("The client can only make one movement per month"));
-                                            }
-
-                                            return movementRepository
-                                                    .save(movementDtoToMovement(movementDto))
-                                                    .flatMap(movement -> {
-                                                        if(movement.getType() == EnumTypeMovement.DEPOSIT) {
-                                                            bankAccount.setBalance(bankAccount.getBalance() + movementDto.getAmount());
-                                                        } else if(movement.getType() == EnumTypeMovement.WITHDRAWAL) {
-                                                            if (bankAccount.getBalance() < movementDto.getAmount()) {
-                                                                return Mono.error(new InsufficientFundsException("Insufficient funds for withdrawal"));
-                                                            }
-                                                            bankAccount.setBalance(bankAccount.getBalance() - movementDto.getAmount());
-                                                        }
-
-                                                        return bankAccountRepository.save(bankAccount).thenReturn(movement);
-                                                    })
-                                                    .map(this::movementToMovementGetDto);
-                                        });
-
-                            }
-
-                            return movementRepository
-                                    .save(movementDtoToMovement(movementDto))
-                                    .flatMap(movement -> {
-                                        if(movement.getType() == EnumTypeMovement.DEPOSIT) {
-                                            bankAccount.setBalance(bankAccount.getBalance() + movementDto.getAmount());
-                                        } else if(movement.getType() == EnumTypeMovement.WITHDRAWAL) {
-                                            if (bankAccount.getBalance() < movementDto.getAmount()) {
-                                                return Mono.error(new InsufficientFundsException("Insufficient funds for withdrawal"));
-                                            }
-                                            bankAccount.setBalance(bankAccount.getBalance() - movementDto.getAmount());
-                                        }
-
-                                        return bankAccountRepository.save(bankAccount).thenReturn(movement);
-                                    })
-                                    .map(this::movementToMovementGetDto);
-                        })
-                );
-    }*/
-
     private Mono<CustomerGetDto> getCustomerGetDto(String customer) {
         return webClient
                 .build()
@@ -182,7 +110,7 @@ public class MovementServiceImpl implements IMovementService {
 
     private Movement movementDtoToMovement(MovementDto movementDto) {
         Movement movement = new Movement();
-        movement.setProduct(movementDto.getProduct());
+        movement.setBankAccount(movementDto.getBankAccount());
         movement.setCustomer(movementDto.getCustomer());
         movement.setType(movementDto.getType());
         movement.setAmount(movementDto.getAmount());
@@ -195,7 +123,7 @@ public class MovementServiceImpl implements IMovementService {
     private MovementGetDto movementToMovementGetDto(Movement movement) {
         MovementGetDto movementGetDto = new MovementGetDto();
         movementGetDto.setId(movement.getId());
-        movementGetDto.setProduct(movement.getProduct());
+        movementGetDto.setProduct(movement.getBankAccount());
         movementGetDto.setCustomer(movement.getCustomer());
         movementGetDto.setType(movement.getType());
         movementGetDto.setAmount(movement.getAmount());

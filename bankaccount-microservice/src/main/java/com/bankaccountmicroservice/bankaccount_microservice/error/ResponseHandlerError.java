@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.support.WebExchangeBindException;
 import reactor.core.publisher.Mono;
-
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -72,6 +71,16 @@ public class ResponseHandlerError {
 
     @ExceptionHandler(InsufficientFundsException.class)
     protected Mono<ResponseEntity<ErrorResponse>> handleInsufficientFundException(InsufficientFundsException ex) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+        errorResponse.setMessage(ex.getMessage());
+        errorResponse.setErrors(null);
+
+        return Mono.just(new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST));
+    }
+
+    @ExceptionHandler(BankAccountAlreadyExistsException.class)
+    protected Mono<ResponseEntity<ErrorResponse>> handleBankAccountAlreadyExistsException(BankAccountAlreadyExistsException ex) {
         ErrorResponse errorResponse = new ErrorResponse();
         errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
         errorResponse.setMessage(ex.getMessage());

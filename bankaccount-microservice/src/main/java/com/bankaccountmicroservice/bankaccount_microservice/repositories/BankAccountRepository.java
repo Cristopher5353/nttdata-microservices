@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface BankAccountRepository extends ReactiveMongoRepository<BankAccount, String> {
     Flux<BankAccount> findByCustomerAndTypeIn(String customer, List<EnumTypeBankAccount> types);
+    Flux<BankAccount> findByCustomer(String customer);
 }

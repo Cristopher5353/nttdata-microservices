@@ -17,7 +17,7 @@ import java.util.Date;
 public class Movement {
     @Id
     private String id;
-    private String product;
+    private String bankAccount;
     private String customer;
     private EnumTypeMovement type;
     private Double amount;

@@ -6,5 +6,6 @@ import reactor.core.publisher.Flux;
 import java.util.Date;
 
 public interface MovementRepository extends ReactiveMongoRepository<Movement, String> {
-    Flux<Movement> findByCustomerAndProductAndDateCreatedBetween(String customer, String product, Date startDate, Date endDate);
+    Flux<Movement> findByCustomerAndBankAccountAndDateCreatedBetween(String customer, String bankAccount, Date startDate, Date endDate);
+    Flux<Movement> findByBankAccountAndCustomer(String bankAccount, String customer);
 }

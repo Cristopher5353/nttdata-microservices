@@ -14,7 +14,7 @@ import java.util.Date;
 @AllArgsConstructor
 public class MovementDto {
     private String customer;
-    private String product;
+    private String bankAccount;
     private Double amount;
     private EnumTypeMovement type;
     private Date dateCreated;

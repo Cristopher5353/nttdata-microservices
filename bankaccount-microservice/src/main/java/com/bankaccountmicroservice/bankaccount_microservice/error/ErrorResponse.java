@@ -2,7 +2,6 @@ package com.bankaccountmicroservice.bankaccount_microservice.error;
 
 import lombok.Getter;
 import lombok.Setter;
-
 import java.util.List;
 
 @Getter
