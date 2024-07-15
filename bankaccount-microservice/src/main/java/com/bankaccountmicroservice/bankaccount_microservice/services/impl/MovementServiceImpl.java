@@ -12,6 +12,7 @@ import com.bankaccountmicroservice.bankaccount_microservice.services.IMovementSe
 import com.bankaccountmicroservice.bankaccount_microservice.util.EnumTypeBankAccount;
 import com.bankaccountmicroservice.bankaccount_microservice.util.EnumTypeMovement;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -51,29 +52,21 @@ public class MovementServiceImpl implements IMovementService {
     }
 
     private Mono<Boolean> checkMovementLimits(MovementDto movementDto, BankAccount bankAccount) {
-        if (bankAccount.getType() == EnumTypeBankAccount.SAVING) {
-            return movementRepository
-                    .findByCustomerAndBankAccountAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getBankAccount(), getStartOfMonth(), getEndOfMonth())
-                    .collectList()
-                    .flatMap(movements -> {
-                        if (movements.size() >= bankAccount.getLimit()) {
-                            return Mono.error(new MovementLimitException("The client has reached the monthly transaction limit"));
-                        }
-                        return Mono.just(true);
-                    });
-        } else if (bankAccount.getType() == EnumTypeBankAccount.FIXEDTERM) {
-            return movementRepository
-                    .findByCustomerAndBankAccountAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getBankAccount(), getStartOfMonth(), getEndOfMonth())
-                    .collectList()
-                    .flatMap(movements -> {
-                        if (!movements.isEmpty()) {
-                            return Mono.error(new MovementLimitOneMonthException("The client can only make one movement per month"));
-                        }
-                        return Mono.just(true);
-                    });
-        } else {
+        if(bankAccount.getType() != EnumTypeBankAccount.SAVING && bankAccount.getType() != EnumTypeBankAccount.FIXEDTERM) {
             return Mono.just(true);
         }
+
+        return movementRepository
+                .findByCustomerAndBankAccountAndDateCreatedBetween(movementDto.getCustomer(), movementDto.getBankAccount(), getStartOfMonth(), getEndOfMonth())
+                .collectList()
+                .flatMap(movements -> {
+                    if(bankAccount.getType() == EnumTypeBankAccount.SAVING && movements.size() >= bankAccount.getLimit()) {
+                        return Mono.error(new MovementLimitException("The client has reached the monthly transaction limit"));
+                    } else if(bankAccount.getType() == EnumTypeBankAccount.FIXEDTERM && !movements.isEmpty()) {
+                        return Mono.error(new MovementLimitOneMonthException("The client can only make one movement per month"));
+                    }
+                    return Mono.just(true);
+                });
     }
 
     private Mono<Movement> processMovement(MovementDto movementDto, BankAccount bankAccount) {
@@ -97,13 +90,9 @@ public class MovementServiceImpl implements IMovementService {
                 .get()
                 .uri("http://localhost:8090/api/customers/{id}", customer)
                 .retrieve()
+                .onStatus(HttpStatus::is4xxClientError, response -> Mono.error(new CustomerNotFoundException("Customer not found")))
                 .bodyToMono(CustomerGetDto.class)
-                .flatMap(customerGetDto -> {
-                    if(customerGetDto.getId() == null) {
-                        return Mono.error(new CustomerNotFoundException("Customer not found"));
-                    }
-                    return Mono.just(customerGetDto);
-                });
+                .flatMap(Mono::just);
     }
 
     private Movement movementDtoToMovement(MovementDto movementDto) {

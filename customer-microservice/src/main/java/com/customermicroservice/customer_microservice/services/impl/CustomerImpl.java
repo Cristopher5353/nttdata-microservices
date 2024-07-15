@@ -34,7 +34,7 @@ public class CustomerImpl implements ICustomerService {
     public Mono<CustomerGetDto> findById(String id) {
         return customerRepository
                 .findById(id)
-                .switchIfEmpty(Mono.just(new Customer()))
+                .switchIfEmpty(Mono.error(new CustomerNotFoundException("Customer not found")))
                 .map(this::customerToCustomerGetDto);
     }
 

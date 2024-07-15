@@ -10,6 +10,7 @@ import com.bankaccountmicroservice.bankaccount_microservice.services.IBankAccoun
 import com.bankaccountmicroservice.bankaccount_microservice.util.EnumTypeBankAccount;
 import com.bankaccountmicroservice.bankaccount_microservice.util.EnumTypeCustomer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -34,13 +35,9 @@ public class BankAccountServiceImpl implements IBankAccountService {
                 .get()
                 .uri("http://localhost:8090/api/customers/{id}", bankAccountDto.getCustomer())
                 .retrieve()
+                .onStatus(HttpStatus::is4xxClientError, response -> Mono.error(new CustomerNotFoundException("Customer not found")))
                 .bodyToMono(CustomerGetDto.class)
-                .flatMap(customerGetDto -> {
-                    if(customerGetDto.getId() == null) {
-                        return Mono.error(new CustomerNotFoundException("Customer not found"));
-                    }
-                    return processSaveBankAccount(bankAccountDto, customerGetDto);
-                });
+                .flatMap(customerGetDto -> processSaveBankAccount(bankAccountDto, customerGetDto));
     }
 
     @Override
