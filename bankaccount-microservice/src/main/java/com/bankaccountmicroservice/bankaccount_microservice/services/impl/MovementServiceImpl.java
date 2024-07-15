@@ -77,20 +77,18 @@ public class MovementServiceImpl implements IMovementService {
     }
 
     private Mono<Movement> processMovement(MovementDto movementDto, BankAccount bankAccount) {
+        if (movementDto.getType() == EnumTypeMovement.DEPOSIT) {
+            bankAccount.setBalance(bankAccount.getBalance() + movementDto.getAmount());
+        } else if (movementDto.getType() == EnumTypeMovement.WITHDRAWAL) {
+            if (bankAccount.getBalance() < movementDto.getAmount()) {
+                return Mono.error(new InsufficientFundsException("Insufficient funds for withdrawal"));
+            }
+            bankAccount.setBalance(bankAccount.getBalance() - movementDto.getAmount());
+        }
+
         return movementRepository
                 .save(movementDtoToMovement(movementDto))
-                .flatMap(movement -> {
-                    if (movement.getType() == EnumTypeMovement.DEPOSIT) {
-                        bankAccount.setBalance(bankAccount.getBalance() + movementDto.getAmount());
-                    } else if (movement.getType() == EnumTypeMovement.WITHDRAWAL) {
-                        if (bankAccount.getBalance() < movementDto.getAmount()) {
-                            return Mono.error(new InsufficientFundsException("Insufficient funds for withdrawal"));
-                        }
-                        bankAccount.setBalance(bankAccount.getBalance() - movementDto.getAmount());
-                    }
-
-                    return bankAccountRepository.save(bankAccount).thenReturn(movement);
-                });
+                .flatMap(movement -> bankAccountRepository.save(bankAccount).thenReturn(movement));
     }
 
     private Mono<CustomerGetDto> getCustomerGetDto(String customer) {

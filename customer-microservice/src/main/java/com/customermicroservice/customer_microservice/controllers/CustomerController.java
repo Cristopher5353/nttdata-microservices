@@ -21,7 +21,7 @@ public class CustomerController {
     }
 
     @GetMapping("")
-    public Flux<CustomerGetDto> getAll() {
+    public Flux<CustomerGetDto> findAll() {
         return iCustomerService.findAll();
     }
 
