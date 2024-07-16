@@ -1,8 +1,8 @@
 spring:
   application:
-    name: bank-account
+    name: bankaccount-microservice
   cloud:
     config:
       uri: http://localhost:8081
-      username: root
-      password : s3cr3t
+      username: ${CONFIG_SERVER_USERNAME}
+      password : ${CONFIG_SERVER_PASSWORD}
