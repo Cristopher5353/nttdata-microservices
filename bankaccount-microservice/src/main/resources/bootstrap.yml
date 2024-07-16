@@ -4,5 +4,5 @@ spring:
   cloud:
     config:
       uri: http://localhost:8081
-      name: root
+      username: root
       password: s3cr3t
